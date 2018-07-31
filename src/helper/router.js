@@ -7,6 +7,7 @@ const readdir = promisify(fs.readdir);
 const config = require('../config/defaultConfig');
 const mime = require('./mime');
 const compress = require('./compress');
+const range = require('./range');
 
 const tplPath = path.join(__dirname, '../template/dir.tpl'); // __dirname 访问路径
 const source = fs.readFileSync(tplPath); // 同步获取文件路径
@@ -21,14 +22,24 @@ module.exports = async function (req, res, filePath) {
 		// 如果是个文件 那么返回文件内容
 		if (stats.isFile()) {
 			const contentType = mime(filePath);
-			res.statusCode = 200;
+			
 			res.setHeader('Content-Type', contentType);
 			// createReadStream返回一个readStream（文件读取流，输入流）对象。（可读流）
 			// pipe -> 流数据方式
 			// fs.createReadStream(filePath).pipe(res);
 
+			// range 部分文件
+			let rs;
+			const {code, start, end} = range(stats.size, req, res);
+			if (code = 200) {
+				res.statusCode = 200;
+				rs = fs.createReadStream(filePath);
+			} else {
+				res.statusCode = 206;
+				rs = fs.createReadStream(filePath, {start, end});
+			}
+
 			// 压缩文件
-			let rs = fs.createReadStream(filePath);
 			if (filePath.match(config.compress)) {
 				rs = compress(rs, req, res)
 			}
