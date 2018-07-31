@@ -5,6 +5,7 @@ const promisify = require('util').promisify; // 让一个回调函数变为promi
 const stat = promisify(fs.stat);
 const readdir = promisify(fs.readdir);
 const config = require('../config/defaultConfig');
+const mime = require('./mime');
 
 const tplPath = path.join(__dirname, '../template/dir.tpl'); // __dirname 访问路径
 const source = fs.readFileSync(tplPath); // 同步获取文件路径
@@ -18,8 +19,9 @@ module.exports = async function (req, res, filePath) {
 
 		// 如果是个文件 那么返回文件内容
 		if (stats.isFile()) {
+			const contentType = mime(filePath);
 			res.statusCode = 200;
-			res.setHeader('Content-Type', 'text/plain');
+			res.setHeader('Content-Type', contentType);
 			// createReadStream返回一个readStream（文件读取流，输入流）对象。（可读流）
 			// pipe -> 流数据方式
 			fs.createReadStream(filePath).pipe(res);
@@ -32,10 +34,14 @@ module.exports = async function (req, res, filePath) {
 			const data = {
 				title: path.basename(filePath), // 文件名 path.basename() 方法返回一个 path 的最后一部分
 				dir: dir ? `/${dir}` : '', 
-				files
+				files: files.map(file => {
+					return {
+						file,
+						icon: mime(file)
+					}
+				})
 			};
 			res.end(template(data));
-			// res.end(files.join(','));
 		}
 	} 
 	catch(ex)  {
